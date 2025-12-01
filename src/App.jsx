@@ -2,6 +2,24 @@ import { useState, useEffect } from 'react'
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/clerk-react"
 import { supabase } from './supabaseClient'
 
+// --- FOOTER COMPONENT (New) ---
+const Footer = () => {
+  return (
+    <footer className="footer">
+      <div className="footer-content">
+        <div className="footer-links">
+          <a href="#" className="footer-link" onClick={(e) => {e.preventDefault(); alert("Thanks for your feedback!")}}>Feedback</a>
+          <span style={{color:'#cbd5e0'}}>|</span>
+          <a href="mailto:support@traveljournal.com" className="footer-link">Contact</a>
+          <span style={{color:'#cbd5e0'}}>|</span>
+          <a href="#" className="footer-link" onClick={(e) => {e.preventDefault(); alert("Help Center coming soon!")}}>Support</a>
+        </div>
+        <p className="copyright">© 2024 Travel Journal. Made with 💜.</p>
+      </div>
+    </footer>
+  );
+};
+
 function App() {
   const { user } = useUser();
   const [journals, setJournals] = useState([]);
@@ -9,11 +27,10 @@ function App() {
   const [imageFile, setImageFile] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // --- NEW: LOCATION SUGGESTIONS STATE ---
+  // Location Suggestions State
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // 1. Fetch Journals
   useEffect(() => {
     if (user) fetchJournals();
   }, [user]);
@@ -28,12 +45,11 @@ function App() {
     else setJournals(data);
   };
 
-  // --- NEW: FETCH LOCATIONS FROM OPENSTREETMAP ---
+  // Location Autocomplete
   const handleLocationChange = async (e) => {
     const value = e.target.value;
     setNewEntry({ ...newEntry, location: value });
 
-    // Only search if user types more than 2 letters
     if (value.length > 2) {
       try {
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${value}&limit=5`);
@@ -49,14 +65,13 @@ function App() {
     }
   };
 
-  // --- NEW: SELECT A LOCATION ---
   const selectLocation = (placeName) => {
     setNewEntry({ ...newEntry, location: placeName });
     setSuggestions([]);
     setShowSuggestions(false);
   };
 
-  // 2. Upload Image
+  // Upload Logic
   const handleUpload = async () => {
     if (!imageFile) return null;
     const fileExt = imageFile.name.split('.').pop();
@@ -68,7 +83,6 @@ function App() {
     return data.publicUrl;
   };
 
-  // 3. Handle Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newEntry.title) return alert("Title is required");
@@ -82,7 +96,6 @@ function App() {
     fetchJournals();
   };
 
-  // 4. Handle Delete
   const handleDelete = async (id) => {
     if(window.confirm("Delete this memory?")) {
       await supabase.from('journals').delete().eq('id', id);
@@ -112,6 +125,8 @@ function App() {
               <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800" className="hero-img img-right" />
             </div>
           </div>
+          {/* Footer added here */}
+          <Footer />
         </div>
       </SignedOut>
 
@@ -137,16 +152,8 @@ function App() {
               <form onSubmit={handleSubmit}>
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'15px'}}>
                   <input type="text" placeholder="Trip Title" value={newEntry.title} onChange={(e) => setNewEntry({...newEntry, title: e.target.value})} />
-                  
-                  {/* --- MODIFIED LOCATION INPUT WITH SUGGESTIONS --- */}
                   <div className="location-wrapper">
-                    <input 
-                      type="text" 
-                      placeholder="Location (Type to search...)" 
-                      value={newEntry.location} 
-                      onChange={handleLocationChange} 
-                      autoComplete="off"
-                    />
+                    <input type="text" placeholder="Location (Type to search...)" value={newEntry.location} onChange={handleLocationChange} autoComplete="off"/>
                     {showSuggestions && suggestions.length > 0 && (
                       <ul className="suggestions-list">
                         {suggestions.map((place) => (
@@ -157,7 +164,6 @@ function App() {
                       </ul>
                     )}
                   </div>
-
                 </div>
                 <textarea rows="3" placeholder="Description..." value={newEntry.description} onChange={(e) => setNewEntry({...newEntry, description: e.target.value})} />
                 <div style={{display:'flex', alignItems:'center', gap:'10px', marginTop:'10px'}}>
@@ -187,6 +193,8 @@ function App() {
               ))}
             </div>
           </div>
+          {/* Footer added here */}
+          <Footer />
         </div>
       </SignedIn>
     </>
