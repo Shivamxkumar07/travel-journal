@@ -3,11 +3,11 @@ import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/c
 import { supabase } from './supabaseClient'
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom'
 
-// --- 1. COMPONENT: DETAIL PAGE (Now with "Add Photo" Feature) ---
+// --- 1. COMPONENT: DETAIL PAGE (With Delete Photo) ---
 const EntryDetail = () => {
   const { id } = useParams();
   const [entry, setEntry] = useState(null);
-  const [uploading, setUploading] = useState(false); // State for loading spinner
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,7 +25,35 @@ const EntryDetail = () => {
     else setEntry(data);
   };
 
-  // --- NEW: FUNCTION TO ADD PHOTOS DIRECTLY ---
+  // --- NEW: DELETE INDIVIDUAL PHOTO ---
+  const handleDeletePhoto = async (urlToDelete, e) => {
+    e.stopPropagation(); // Prevent clicking the image while deleting
+    if (!window.confirm("Are you sure you want to delete this photo?")) return;
+
+    let updateData = {};
+
+    // Check if it is the Main Cover Image
+    if (urlToDelete === entry.image_url) {
+      updateData.image_url = null;
+    } else {
+      // It must be in the Gallery Array
+      const newGallery = entry.gallery.filter(url => url !== urlToDelete);
+      updateData.gallery = newGallery;
+    }
+
+    const { error } = await supabase
+      .from('journals')
+      .update(updateData)
+      .eq('id', id);
+
+    if (error) {
+      alert("Error deleting photo: " + error.message);
+    } else {
+      getEntry(); // Refresh page instantly
+    }
+  };
+
+  // Add Photo Logic
   const handleAddPhotos = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -33,36 +61,25 @@ const EntryDetail = () => {
     setUploading(true);
     const newUrls = [];
 
-    // 1. Upload each file to Storage
     for (const file of files) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const { error } = await supabase.storage.from('journal-images').upload(fileName, file);
-      
       if (!error) {
         const { data } = supabase.storage.from('journal-images').getPublicUrl(fileName);
         newUrls.push(data.publicUrl);
       }
     }
 
-    // 2. Update Database (Append new photos to existing list)
-    const currentGallery = entry.gallery || []; // Get existing photos
-    const updatedGallery = [...currentGallery, ...newUrls]; // Add new ones
+    const currentGallery = entry.gallery || [];
+    const updatedGallery = [...currentGallery, ...newUrls];
 
-    const { error: dbError } = await supabase
-      .from('journals')
-      .update({ gallery: updatedGallery })
-      .eq('id', id);
-
-    if (dbError) {
-      alert("Error saving photos: " + dbError.message);
-    } else {
-      getEntry(); // Refresh page to show new photos immediately
-    }
+    const { error: dbError } = await supabase.from('journals').update({ gallery: updatedGallery }).eq('id', id);
+    if (!dbError) getEntry();
     setUploading(false);
   };
 
-  if (!entry) return <div style={{padding:'50px', textAlign:'center'}}>Loading...</div>;
+  if (!entry) return <div style={{padding:'50px', textAlign:'center'}}>Loading Memory...</div>;
 
   const allImages = [];
   if (entry.image_url) allImages.push(entry.image_url);
@@ -76,17 +93,13 @@ const EntryDetail = () => {
       </div>
 
       <div className="detail-container">
-        
-        {/* LEFT COLUMN: Story */}
+        {/* Left Column: Story */}
         <div>
           <button onClick={() => navigate('/')} className="back-btn">← Back to Dashboard</button>
-          
           <div className="story-card">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
               <span className="story-badge">📍 {entry.location}</span>
-              <span style={{color:'#94a3b8', fontSize:'0.9rem'}}>
-                {new Date(entry.created_at).toLocaleDateString()}
-              </span>
+              <span style={{color:'#94a3b8', fontSize:'0.9rem'}}>{new Date(entry.created_at).toLocaleDateString()}</span>
             </div>
             <h1 className="story-title">{entry.title}</h1>
             <hr style={{border:'0', borderTop:'1px solid #eee', margin:'20px 0'}} />
@@ -94,37 +107,40 @@ const EntryDetail = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Photos */}
+        {/* Right Column: Photos */}
         <div className="photo-stack">
-          {allImages.map((img, index) => (
-            <div key={index} className="photo-card">
-              <img src={img} alt="Trip Memory" className="photo-card-img" />
+          {allImages.length > 0 ? (
+            allImages.map((img, index) => (
+              <div key={index} className="photo-card" style={{position:'relative'}}>
+                <img 
+                  src={img} 
+                  alt="Memory" 
+                  className="photo-card-img" 
+                  onClick={() => window.open(img, '_blank')} 
+                  style={{cursor:'zoom-in'}}
+                />
+                
+                {/* --- DELETE BUTTON (X) --- */}
+                <button 
+                  className="delete-btn-gallery" 
+                  onClick={(e) => handleDeletePhoto(img, e)}
+                  title="Delete this photo"
+                >
+                  ✕
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="photo-card" style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e0'}}>
+              No Photos Added
             </div>
-          ))}
+          )}
           
-          {/* --- NEW: WORKING "ADD PHOTO" BUTTON --- */}
+          {/* Add Photo Button */}
           <label className="photo-card" style={{border:'2px dashed #cbd5e0', boxShadow:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'150px'}}>
-            
-            {/* The Hidden Input */}
-            <input 
-              type="file" 
-              multiple 
-              accept="image/*" 
-              onChange={handleAddPhotos} 
-              style={{display:'none'}} 
-              disabled={uploading}
-            />
-
-            {uploading ? (
-              <span style={{color:'#00897b', fontWeight:'600'}}>Uploading...</span>
-            ) : (
-              <>
-                <span style={{fontSize:'2rem', color:'#cbd5e0'}}>+</span>
-                <span style={{color:'#94a3b8', fontWeight:'600'}}>Add Photo</span>
-              </>
-            )}
+            <input type="file" multiple accept="image/*" onChange={handleAddPhotos} style={{display:'none'}} disabled={uploading} />
+            {uploading ? <span style={{color:'#00897b', fontWeight:'600'}}>Uploading...</span> : <><span style={{fontSize:'2rem', color:'#cbd5e0'}}>+</span><span style={{color:'#94a3b8', fontWeight:'600'}}>Add Photo</span></>}
           </label>
-
         </div>
       </div>
       <Footer />

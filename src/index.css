@@ -109,3 +109,27 @@ input, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-
 .btn-teal { background: var(--primary-teal); color: white; padding: 10px 20px; border-radius: 50px; border: none; cursor: pointer; }
 .footer { text-align: center; padding: 40px; color: #94a3b8; font-size: 0.9rem; }
 .delete-btn { float: right; background: none; border: none; font-size: 1.2rem; cursor: pointer; }
+/* --- GALLERY DELETE BUTTON --- */
+.delete-btn-gallery {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 20; /* Ensures it sits above the image */
+  transition: background 0.2s;
+}
+
+.delete-btn-gallery:hover {
+  background: #ef4444; /* Red on hover */
+}
