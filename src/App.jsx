@@ -3,7 +3,7 @@ import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/c
 import { supabase } from './supabaseClient'
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom'
 
-// --- 1. COMPONENT: DETAIL PAGE (With Gallery) ---
+// --- 1. COMPONENT: DETAIL PAGE (New Split Layout) ---
 const EntryDetail = () => {
   const { id } = useParams();
   const [entry, setEntry] = useState(null);
@@ -19,181 +19,142 @@ const EntryDetail = () => {
       .select('*')
       .eq('id', id)
       .single();
-    
     if (error) console.error(error);
     else setEntry(data);
   };
 
-  if (!entry) return <div style={{display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', background:'#fdfbf7'}}>Loading Memory...</div>;
+  if (!entry) return <div style={{padding:'50px', textAlign:'center'}}>Loading...</div>;
+
+  // Combine main image and gallery images into one list
+  const allImages = [];
+  if (entry.image_url) allImages.push(entry.image_url);
+  if (entry.gallery) allImages.push(...entry.gallery);
 
   return (
-    <div className="detail-page-container">
-      {/* Floating Back Button */}
-      <button onClick={() => navigate('/')} className="back-btn-floating">
-        ← Back
-      </button>
-
-      {/* Main Banner (First Image) */}
-      <div className="detail-hero-banner">
-        {entry.image_url ? (
-          <img src={entry.image_url} alt={entry.title} className="detail-hero-img" />
-        ) : (
-          <div style={{width:'100%', height:'100%', background: 'linear-gradient(135deg, #00897b, #4db6ac)'}} />
-        )}
+    <div>
+      <div className="navbar">
+        <div className="logo" onClick={() => navigate('/')}>✈️ My Journal</div>
+        <UserButton />
       </div>
 
-      {/* Story Card */}
-      <div className="detail-content-card">
-        <h1 className="detail-title">{entry.title}</h1>
+      <div className="detail-container">
         
-        <div className="detail-meta-row">
-          <span className="detail-badge">📍 {entry.location}</span>
-          <span className="detail-date">
-            Travelled on {new Date(entry.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-          </span>
-        </div>
-
-        <div className="detail-description">
-          {entry.description}
-        </div>
-
-        {/* --- PHOTO GALLERY SECTION --- */}
-        {entry.gallery && entry.gallery.length > 0 && (
-          <div className="detail-gallery-section">
-            <h3 className="gallery-title">📸 Photo Gallery</h3>
-            <div className="gallery-grid">
-              {entry.gallery.map((imgLink, index) => (
-                <img 
-                  key={index} 
-                  src={imgLink} 
-                  alt={`Gallery ${index}`} 
-                  className="gallery-img"
-                  onClick={() => window.open(imgLink, '_blank')} // Click to open full size
-                />
-              ))}
+        {/* LEFT COLUMN: Main Story Card */}
+        <div>
+          <button onClick={() => navigate('/')} className="back-btn">← Back to Dashboard</button>
+          
+          <div className="story-card">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+              <span className="story-badge">📍 {entry.location}</span>
+              <span style={{color:'#94a3b8', fontSize:'0.9rem'}}>
+                {new Date(entry.created_at).toLocaleDateString()}
+              </span>
+            </div>
+            
+            <h1 className="story-title">{entry.title}</h1>
+            <hr style={{border:'0', borderTop:'1px solid #eee', margin:'20px 0'}} />
+            <div className="story-text">
+              {entry.description}
             </div>
           </div>
-        )}
-      </div>
+        </div>
 
+        {/* RIGHT COLUMN: Photo Stack (Images + Add Option) */}
+        <div className="photo-stack">
+          {/* Display Existing Photos */}
+          {allImages.length > 0 ? (
+            allImages.map((img, index) => (
+              <div key={index} className="photo-card">
+                <img src={img} alt="Trip Memory" className="photo-card-img" />
+              </div>
+            ))
+          ) : (
+            <div className="photo-card" style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e0'}}>
+              No Photos Added
+            </div>
+          )}
+          
+          {/* "Add More" Placeholder Card */}
+          <div className="photo-card" style={{border:'2px dashed #cbd5e0', boxShadow:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'150px'}} onClick={() => alert("Go to Dashboard to edit this entry and add more photos!")}>
+            <span style={{fontSize:'2rem', color:'#cbd5e0'}}>+</span>
+            <span style={{color:'#94a3b8', fontWeight:'600'}}>Add Photo</span>
+          </div>
+          
+           {/* Second "Add More" Placeholder (As requested: "option to add two more") */}
+           <div className="photo-card" style={{border:'2px dashed #cbd5e0', boxShadow:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'150px'}} onClick={() => alert("Go to Dashboard to edit this entry and add more photos!")}>
+            <span style={{fontSize:'2rem', color:'#cbd5e0'}}>+</span>
+            <span style={{color:'#94a3b8', fontWeight:'600'}}>Add Photo</span>
+          </div>
+
+        </div>
+
+      </div>
       <Footer />
     </div>
   );
 };
 
-// --- 2. COMPONENT: DASHBOARD (Main Page) ---
+// --- 2. COMPONENT: DASHBOARD (Main List) ---
 const Dashboard = () => {
   const { user } = useUser();
   const [journals, setJournals] = useState([]);
   const [newEntry, setNewEntry] = useState({ title: '', location: '', description: '' });
-  
-  // State for multiple files
-  const [imageFiles, setImageFiles] = useState([]); 
+  const [imageFiles, setImageFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
-  
-  // Search & Autocomplete State
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Location Suggestions State
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  useEffect(() => {
-    if (user) fetchJournals();
-  }, [user]);
+  useEffect(() => { if (user) fetchJournals(); }, [user]);
 
   const fetchJournals = async () => {
-    const { data, error } = await supabase
-      .from('journals')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    
-    if (error) console.error("Error fetching:", error);
-    else setJournals(data);
+    const { data } = await supabase.from('journals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    setJournals(data || []);
   };
 
-  // Location Autocomplete Logic
   const handleLocationChange = async (e) => {
     const value = e.target.value;
     setNewEntry({ ...newEntry, location: value });
-
     if (value.length > 2) {
       try {
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${value}&limit=5`);
         const data = await response.json();
-        setSuggestions(data);
-        setShowSuggestions(true);
+        setSuggestions(data); setShowSuggestions(true);
       } catch (error) { console.error(error); }
-    } else {
-      setSuggestions([]); setShowSuggestions(false);
-    }
+    } else { setSuggestions([]); setShowSuggestions(false); }
   };
 
   const selectLocation = (placeName) => {
-    setNewEntry({ ...newEntry, location: placeName });
-    setSuggestions([]); setShowSuggestions(false);
+    setNewEntry({ ...newEntry, location: placeName }); setSuggestions([]); setShowSuggestions(false);
   };
 
-  // Multi-File Upload Logic
   const handleUploads = async () => {
     if (imageFiles.length === 0) return { mainUrl: null, galleryUrls: [] };
-    
     setUploading(true);
     const uploadedUrls = [];
-
     for (const file of imageFiles) {
-      // Sanitize file name
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const { error } = await supabase.storage.from('journal-images').upload(filePath, file);
-      
-      if (error) {
-        alert(`Error uploading ${file.name}: ` + error.message);
-        continue; 
-      }
-
-      const { data } = supabase.storage.from('journal-images').getPublicUrl(filePath);
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
+      await supabase.storage.from('journal-images').upload(fileName, file);
+      const { data } = supabase.storage.from('journal-images').getPublicUrl(fileName);
       uploadedUrls.push(data.publicUrl);
     }
     setUploading(false);
-    
-    // Return first image as "Main Cover" and ALL images as "Gallery List"
-    return { 
-      mainUrl: uploadedUrls[0] || null, 
-      galleryUrls: uploadedUrls 
-    };
+    return { mainUrl: uploadedUrls[0], galleryUrls: uploadedUrls };
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!newEntry.title) return alert("Title is required");
-
+    if (!newEntry.title) return alert("Title required");
     const { mainUrl, galleryUrls } = await handleUploads();
-
-    const { error } = await supabase.from('journals').insert([{
-      user_id: user.id,
-      title: newEntry.title,
-      location: newEntry.location,
-      description: newEntry.description,
-      image_url: mainUrl,   // Cover Photo
-      gallery: galleryUrls  // Full Gallery List
-    }]);
-
-    if (error) {
-      console.error(error); alert("Error saving entry.");
-    } else {
-      setNewEntry({ title: '', location: '', description: '' });
-      setImageFiles([]);
-      // Reset file input visually
-      document.getElementById('fileInput').value = ""; 
-      fetchJournals();
-    }
+    await supabase.from('journals').insert([{ user_id: user.id, ...newEntry, image_url: mainUrl, gallery: galleryUrls }]);
+    setNewEntry({ title: '', location: '', description: '' }); setImageFiles([]); document.getElementById('fileInput').value = ""; fetchJournals();
   };
 
   const handleDelete = async (e, id) => {
-    e.stopPropagation(); // Prevent click from opening the detail page
-    if(window.confirm("Are you sure you want to delete this memory?")) {
+    e.stopPropagation();
+    if(window.confirm("Delete this memory?")) {
       await supabase.from('journals').delete().eq('id', id);
       fetchJournals();
     }
@@ -206,14 +167,10 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container">
-      <header className="navbar">
-        <div className="logo">✈️ My Journal</div>
-        <UserButton />
-      </header>
-
+      <div className="navbar"><div className="logo">✈️ My Journal</div><UserButton /></div>
+      
       <div className="dashboard-content-wrapper">
-        
-        {/* Dashboard Banner */}
+        {/* Banner */}
         <div style={{ width: '100%', height: '250px', borderRadius: '20px', marginBottom: '40px', overflow: 'hidden', position: 'relative', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}>
           <img src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(255, 255, 255, 0.85)', padding: '10px 25px', borderRadius: '50px', backdropFilter: 'blur(5px)' }}>
@@ -221,74 +178,46 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Entry Form */}
+        {/* Form */}
         <div className="entry-form-card">
           <h3>Add a New Adventure</h3>
           <form onSubmit={handleSubmit}>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'15px'}}>
               <input type="text" placeholder="Trip Title" value={newEntry.title} onChange={(e) => setNewEntry({...newEntry, title: e.target.value})} />
-              
-              {/* Location with Autocomplete */}
               <div className="location-wrapper">
-                <input type="text" placeholder="Location (Type to search...)" value={newEntry.location} onChange={handleLocationChange} autoComplete="off"/>
+                <input type="text" placeholder="Location..." value={newEntry.location} onChange={handleLocationChange} autoComplete="off"/>
                 {showSuggestions && suggestions.length > 0 && (
                   <ul className="suggestions-list">
-                    {suggestions.map((place) => (
-                      <li key={place.place_id} onClick={() => selectLocation(place.display_name)} className="suggestion-item">
-                        📍 {place.display_name}
-                      </li>
-                    ))}
+                    {suggestions.map((place) => <li key={place.place_id} onClick={() => selectLocation(place.display_name)} className="suggestion-item">📍 {place.display_name}</li>)}
                   </ul>
                 )}
               </div>
             </div>
-            
             <textarea rows="3" placeholder="Description..." value={newEntry.description} onChange={(e) => setNewEntry({...newEntry, description: e.target.value})} />
-            
-            <div style={{display:'flex', alignItems:'center', gap:'10px', marginTop:'10px'}}>
-              {/* Multiple File Input */}
-              <input 
-                id="fileInput"
-                type="file" 
-                multiple 
-                accept="image/*" 
-                onChange={(e) => setImageFiles(Array.from(e.target.files))} 
-                style={{border:'none', padding:0}} 
-              />
-              <button className="btn-teal btn-large" style={{marginLeft:'auto'}} disabled={uploading}>
-                {uploading ? "Uploading..." : "Save Entry"}
-              </button>
+            <div style={{display:'flex', alignItems:'center', marginTop:'10px', gap:'10px'}}>
+              <input id="fileInput" type="file" multiple accept="image/*" onChange={(e) => setImageFiles(Array.from(e.target.files))} />
+              <button className="btn-teal" disabled={uploading}>{uploading ? "..." : "Save"}</button>
             </div>
-            {imageFiles.length > 0 && <p style={{fontSize:'0.8rem', color:'#666', marginTop:'5px'}}>{imageFiles.length} photos selected</p>}
+            {imageFiles.length > 0 && <p style={{fontSize:'0.8rem', color:'#666'}}>{imageFiles.length} photos selected</p>}
           </form>
         </div>
 
-        {/* Search Bar */}
         <div style={{ marginBottom: '30px' }}>
-          <input type="text" placeholder="🔍 Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '15px', borderRadius: '50px', border: '1px solid #ddd', boxShadow:'0 4px 10px rgba(0,0,0,0.05)', fontSize: '1.1rem' }} />
+          <input type="text" placeholder="🔍 Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '15px', borderRadius: '50px', border: '1px solid #ddd', fontSize: '1.1rem' }} />
         </div>
 
-        {/* Gallery Grid */}
         <div className="journal-grid">
-          {filteredJournals.length > 0 ? (
-            filteredJournals.map((j) => (
-              <Link to={`/entry/${j.id}`} key={j.id} style={{textDecoration:'none'}}>
-                <div className="travel-card">
-                  <button onClick={(e) => handleDelete(e, j.id)} className="delete-btn">🗑️</button>
-                  <div className="card-image-box">
-                    {j.image_url ? <img src={j.image_url} className="card-img" /> : <div style={{width:'100%', height:'100%', background:'#f7fafc'}}></div>}
-                  </div>
-                  <div className="card-content">
-                    <span className="card-loc">📍 {j.location}</span>
-                    <h4 className="card-title">{j.title}</h4>
-                    <p className="card-desc">{j.description}</p>
-                  </div>
+          {filteredJournals.map((j) => (
+            <Link to={`/entry/${j.id}`} key={j.id} style={{textDecoration:'none'}}>
+              <div className="travel-card">
+                <div style={{position:'relative'}}>
+                  {j.image_url ? <img src={j.image_url} className="card-img" /> : <div style={{width:'100%', height:'200px', background:'#f7fafc'}}></div>}
+                  <button className="delete-btn" onClick={(e) => handleDelete(e, j.id)}>🗑️</button>
                 </div>
-              </Link>
-            ))
-          ) : (
-            <p style={{gridColumn:'1/-1', textAlign:'center', color:'#888'}}>No trips found.</p>
-          )}
+                <div className="card-content"><h4 style={{margin:0, color:'#333'}}>{j.title}</h4><p style={{color:'#666', fontSize:'0.9rem'}}>📍 {j.location}</p></div>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
       <Footer />
@@ -296,50 +225,20 @@ const Dashboard = () => {
   );
 };
 
-// --- 3. COMPONENT: FOOTER ---
 const Footer = () => (
   <footer className="footer">
-    <div className="footer-content">
-      <div className="footer-links">
-        <a href="#" className="footer-link">Feedback</a><span style={{color:'#cbd5e0'}}>|</span>
-        <a href="mailto:support@traveljournal.com" className="footer-link">Contact</a><span style={{color:'#cbd5e0'}}>|</span>
-        <a href="#" className="footer-link">Support</a>
-      </div>
-      <p className="copyright">© 2024 Travel Journal.</p>
+    <div className="footer-links">
+      <a href="#">Feedback</a><span>|</span><a href="#">Contact</a><span>|</span><a href="#">Support</a>
     </div>
+    <p style={{marginTop:'10px', fontSize:'0.8rem'}}>© 2024 Travel Journal</p>
   </footer>
 );
 
-// --- 4. MAIN APP ROUTING ---
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={
-          <>
-            <SignedOut>
-              <div className="landing-page">
-                <nav className="navbar">
-                  <div className="logo">✈️ Travel Journal</div>
-                  <SignInButton mode="modal"><button className="btn-teal">Sign In</button></SignInButton>
-                </nav>
-                <div className="hero-content">
-                  <div className="hero-actions">
-                    <SignInButton mode="modal"><button className="btn-teal btn-large">Start Journaling</button></SignInButton>
-                  </div>
-                  <div className="hero-images">
-                    <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800" className="hero-img img-left" />
-                    <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800" className="hero-img img-right" />
-                  </div>
-                </div>
-                <Footer />
-              </div>
-            </SignedOut>
-            <SignedIn>
-              <Dashboard />
-            </SignedIn>
-          </>
-        } />
+        <Route path="/" element={<><SignedOut><div className="landing-page"><div className="navbar"><div className="logo">✈️ Travel Journal</div><SignInButton mode="modal"><button className="btn-teal">Sign In</button></SignInButton></div><div className="hero-content"><h1>Capture Your Journey</h1><div className="hero-actions"><SignInButton mode="modal"><button className="btn-teal">Start Now</button></SignInButton></div></div><Footer /></div></SignedOut><SignedIn><Dashboard /></SignedIn></>} />
         <Route path="/entry/:id" element={<SignedIn><EntryDetail /></SignedIn>} />
       </Routes>
     </BrowserRouter>
