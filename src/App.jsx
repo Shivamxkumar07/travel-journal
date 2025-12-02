@@ -3,10 +3,11 @@ import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/c
 import { supabase } from './supabaseClient'
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom'
 
-// --- 1. COMPONENT: DETAIL PAGE (New Split Layout) ---
+// --- 1. COMPONENT: DETAIL PAGE (Now with "Add Photo" Feature) ---
 const EntryDetail = () => {
   const { id } = useParams();
   const [entry, setEntry] = useState(null);
+  const [uploading, setUploading] = useState(false); // State for loading spinner
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,13 +20,50 @@ const EntryDetail = () => {
       .select('*')
       .eq('id', id)
       .single();
+    
     if (error) console.error(error);
     else setEntry(data);
   };
 
+  // --- NEW: FUNCTION TO ADD PHOTOS DIRECTLY ---
+  const handleAddPhotos = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    setUploading(true);
+    const newUrls = [];
+
+    // 1. Upload each file to Storage
+    for (const file of files) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const { error } = await supabase.storage.from('journal-images').upload(fileName, file);
+      
+      if (!error) {
+        const { data } = supabase.storage.from('journal-images').getPublicUrl(fileName);
+        newUrls.push(data.publicUrl);
+      }
+    }
+
+    // 2. Update Database (Append new photos to existing list)
+    const currentGallery = entry.gallery || []; // Get existing photos
+    const updatedGallery = [...currentGallery, ...newUrls]; // Add new ones
+
+    const { error: dbError } = await supabase
+      .from('journals')
+      .update({ gallery: updatedGallery })
+      .eq('id', id);
+
+    if (dbError) {
+      alert("Error saving photos: " + dbError.message);
+    } else {
+      getEntry(); // Refresh page to show new photos immediately
+    }
+    setUploading(false);
+  };
+
   if (!entry) return <div style={{padding:'50px', textAlign:'center'}}>Loading...</div>;
 
-  // Combine main image and gallery images into one list
   const allImages = [];
   if (entry.image_url) allImages.push(entry.image_url);
   if (entry.gallery) allImages.push(...entry.gallery);
@@ -39,7 +77,7 @@ const EntryDetail = () => {
 
       <div className="detail-container">
         
-        {/* LEFT COLUMN: Main Story Card */}
+        {/* LEFT COLUMN: Story */}
         <div>
           <button onClick={() => navigate('/')} className="back-btn">← Back to Dashboard</button>
           
@@ -50,51 +88,51 @@ const EntryDetail = () => {
                 {new Date(entry.created_at).toLocaleDateString()}
               </span>
             </div>
-            
             <h1 className="story-title">{entry.title}</h1>
             <hr style={{border:'0', borderTop:'1px solid #eee', margin:'20px 0'}} />
-            <div className="story-text">
-              {entry.description}
-            </div>
+            <div className="story-text">{entry.description}</div>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Photo Stack (Images + Add Option) */}
+        {/* RIGHT COLUMN: Photos */}
         <div className="photo-stack">
-          {/* Display Existing Photos */}
-          {allImages.length > 0 ? (
-            allImages.map((img, index) => (
-              <div key={index} className="photo-card">
-                <img src={img} alt="Trip Memory" className="photo-card-img" />
-              </div>
-            ))
-          ) : (
-            <div className="photo-card" style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e0'}}>
-              No Photos Added
+          {allImages.map((img, index) => (
+            <div key={index} className="photo-card">
+              <img src={img} alt="Trip Memory" className="photo-card-img" />
             </div>
-          )}
+          ))}
           
-          {/* "Add More" Placeholder Card */}
-          <div className="photo-card" style={{border:'2px dashed #cbd5e0', boxShadow:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'150px'}} onClick={() => alert("Go to Dashboard to edit this entry and add more photos!")}>
-            <span style={{fontSize:'2rem', color:'#cbd5e0'}}>+</span>
-            <span style={{color:'#94a3b8', fontWeight:'600'}}>Add Photo</span>
-          </div>
-          
-           {/* Second "Add More" Placeholder (As requested: "option to add two more") */}
-           <div className="photo-card" style={{border:'2px dashed #cbd5e0', boxShadow:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'150px'}} onClick={() => alert("Go to Dashboard to edit this entry and add more photos!")}>
-            <span style={{fontSize:'2rem', color:'#cbd5e0'}}>+</span>
-            <span style={{color:'#94a3b8', fontWeight:'600'}}>Add Photo</span>
-          </div>
+          {/* --- NEW: WORKING "ADD PHOTO" BUTTON --- */}
+          <label className="photo-card" style={{border:'2px dashed #cbd5e0', boxShadow:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'150px'}}>
+            
+            {/* The Hidden Input */}
+            <input 
+              type="file" 
+              multiple 
+              accept="image/*" 
+              onChange={handleAddPhotos} 
+              style={{display:'none'}} 
+              disabled={uploading}
+            />
+
+            {uploading ? (
+              <span style={{color:'#00897b', fontWeight:'600'}}>Uploading...</span>
+            ) : (
+              <>
+                <span style={{fontSize:'2rem', color:'#cbd5e0'}}>+</span>
+                <span style={{color:'#94a3b8', fontWeight:'600'}}>Add Photo</span>
+              </>
+            )}
+          </label>
 
         </div>
-
       </div>
       <Footer />
     </div>
   );
 };
 
-// --- 2. COMPONENT: DASHBOARD (Main List) ---
+// --- 2. COMPONENT: DASHBOARD ---
 const Dashboard = () => {
   const { user } = useUser();
   const [journals, setJournals] = useState([]);
@@ -102,8 +140,6 @@ const Dashboard = () => {
   const [imageFiles, setImageFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Location Suggestions State
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -168,17 +204,13 @@ const Dashboard = () => {
   return (
     <div className="dashboard-container">
       <div className="navbar"><div className="logo">✈️ My Journal</div><UserButton /></div>
-      
       <div className="dashboard-content-wrapper">
-        {/* Banner */}
         <div style={{ width: '100%', height: '250px', borderRadius: '20px', marginBottom: '40px', overflow: 'hidden', position: 'relative', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}>
           <img src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(255, 255, 255, 0.85)', padding: '10px 25px', borderRadius: '50px', backdropFilter: 'blur(5px)' }}>
             <h2 style={{ margin: 0, fontSize: '1.5rem', color: '#00897b' }}>Where to next? 🌏</h2>
           </div>
         </div>
-
-        {/* Form */}
         <div className="entry-form-card">
           <h3>Add a New Adventure</h3>
           <form onSubmit={handleSubmit}>
@@ -201,11 +233,9 @@ const Dashboard = () => {
             {imageFiles.length > 0 && <p style={{fontSize:'0.8rem', color:'#666'}}>{imageFiles.length} photos selected</p>}
           </form>
         </div>
-
         <div style={{ marginBottom: '30px' }}>
           <input type="text" placeholder="🔍 Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '15px', borderRadius: '50px', border: '1px solid #ddd', fontSize: '1.1rem' }} />
         </div>
-
         <div className="journal-grid">
           {filteredJournals.map((j) => (
             <Link to={`/entry/${j.id}`} key={j.id} style={{textDecoration:'none'}}>
@@ -227,9 +257,7 @@ const Dashboard = () => {
 
 const Footer = () => (
   <footer className="footer">
-    <div className="footer-links">
-      <a href="#">Feedback</a><span>|</span><a href="#">Contact</a><span>|</span><a href="#">Support</a>
-    </div>
+    <div className="footer-links"><a href="#">Feedback</a><span>|</span><a href="#">Contact</a><span>|</span><a href="#">Support</a></div>
     <p style={{marginTop:'10px', fontSize:'0.8rem'}}>© 2024 Travel Journal</p>
   </footer>
 );
