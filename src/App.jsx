@@ -4,8 +4,9 @@ import { supabase } from './supabaseClient'
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom'
 
 // --- 1. NEW COMPONENT: THE DETAIL PAGE ---
+// --- 1. NEW COMPONENT: THE DETAIL PAGE ---
 const EntryDetail = () => {
-  const { id } = useParams(); // Get the ID from the URL
+  const { id } = useParams();
   const [entry, setEntry] = useState(null);
   const navigate = useNavigate();
 
@@ -19,50 +20,51 @@ const EntryDetail = () => {
       .select('*')
       .eq('id', id)
       .single();
-    
     if (error) console.error(error);
     else setEntry(data);
   };
 
-  if (!entry) return <div style={{textAlign:'center', marginTop:'50px'}}>Loading...</div>;
+  if (!entry) return <div style={{display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', background:'#fdfbf7'}}>Loading Memory...</div>;
 
   return (
-    <div className="dashboard-container">
-      {/* Navigation Bar */}
-      <header className="navbar">
-        <div className="logo" onClick={() => navigate('/')}>✈️ My Journal</div>
-        <UserButton />
-      </header>
+    <div className="detail-page-container">
+      
+      {/* Floating Back Button */}
+      <button onClick={() => navigate('/')} className="back-btn-floating">
+        ← Back to Dashboard
+      </button>
 
-      <div className="dashboard-content-wrapper" style={{maxWidth:'800px'}}>
-        <button onClick={() => navigate('/')} className="btn-teal" style={{marginBottom:'20px'}}>← Back to Dashboard</button>
+      {/* Hero Banner (The Image) */}
+      <div className="detail-hero-banner">
+        {entry.image_url ? (
+          <img src={entry.image_url} alt={entry.title} className="detail-hero-img" />
+        ) : (
+          /* Fallback pattern if no image */
+          <div style={{width:'100%', height:'100%', background: 'linear-gradient(135deg, #00897b, #4db6ac)'}} />
+        )}
+      </div>
+
+      {/* The Story Card */}
+      <div className="detail-content-card">
+        <h1 className="detail-title">{entry.title}</h1>
         
-        <div className="entry-form-card" style={{padding:'0', overflow:'hidden'}}>
-          {/* Full Width Image */}
-          {entry.image_url && (
-            <div style={{width:'100%', height:'400px'}}>
-              <img src={entry.image_url} style={{width:'100%', height:'100%', objectFit:'cover'}} />
-            </div>
-          )}
-          
-          {/* Content */}
-          <div style={{padding:'40px'}}>
-            <span className="card-loc" style={{fontSize:'1rem', marginBottom:'10px'}}>📍 {entry.location}</span>
-            <h1 style={{fontSize:'2.5rem', margin:'0 0 20px 0', color:'#1a202c'}}>{entry.title}</h1>
-            <p style={{fontSize:'1.1rem', lineHeight:'1.8', color:'#4a5568', whiteSpace:'pre-wrap'}}>
-              {entry.description}
-            </p>
-            <p style={{marginTop:'30px', color:'#a0aec0', fontSize:'0.9rem'}}>
-              Travelled on: {new Date(entry.created_at).toLocaleDateString()}
-            </p>
-          </div>
+        <div className="detail-meta-row">
+          <span className="detail-badge">📍 {entry.location}</span>
+          <span className="detail-date">
+            Travelled on {new Date(entry.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+          </span>
+        </div>
+
+        <div className="detail-description">
+          {entry.description}
         </div>
       </div>
+
+      {/* Footer (Reused) */}
       <Footer />
     </div>
   );
 };
-
 // --- 2. COMPONENT: THE DASHBOARD (Your existing main page) ---
 const Dashboard = () => {
   const { user } = useUser();
