@@ -3,7 +3,7 @@ import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/c
 import { supabase } from './supabaseClient'
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom'
 
-// --- 1. COMPONENT: DETAIL PAGE (With Delete Photo) ---
+// --- 1. COMPONENT: DETAIL PAGE (With Delete & Add) ---
 const EntryDetail = () => {
   const { id } = useParams();
   const [entry, setEntry] = useState(null);
@@ -30,17 +30,13 @@ const EntryDetail = () => {
     if (!window.confirm("Are you sure you want to delete this photo?")) return;
 
     let updateData = {};
-
-    // If deleting the Main Image, set it to null
     if (urlToDelete === entry.image_url) {
       updateData.image_url = null;
     } 
-    // Always remove it from the gallery list too
     const newGallery = entry.gallery ? entry.gallery.filter(url => url !== urlToDelete) : [];
     updateData.gallery = newGallery;
 
     const { error } = await supabase.from('journals').update(updateData).eq('id', id);
-
     if (error) alert("Error deleting photo: " + error.message);
     else getEntry();
   };
@@ -62,12 +58,10 @@ const EntryDetail = () => {
       }
     }
 
-    // If there was no main image before, make the first new photo the main image
     let updateData = {};
     if (!entry.image_url && newUrls.length > 0) {
         updateData.image_url = newUrls[0];
     }
-
     const currentGallery = entry.gallery || [];
     updateData.gallery = [...currentGallery, ...newUrls];
 
@@ -76,9 +70,8 @@ const EntryDetail = () => {
     setUploading(false);
   };
 
-  if (!entry) return <div style={{padding:'50px', textAlign:'center'}}>Loading Memory...</div>;
+  if (!entry) return <div style={{padding:'50px', textAlign:'center'}}>Loading...</div>;
 
-  // Combine unique images for display
   const allImages = [];
   if (entry.image_url) allImages.push(entry.image_url);
   if (entry.gallery) {
@@ -95,7 +88,6 @@ const EntryDetail = () => {
       </div>
 
       <div className="detail-container">
-        {/* Left Column: Story */}
         <div>
           <button onClick={() => navigate('/')} className="back-btn">← Back to Dashboard</button>
           <div className="story-card">
@@ -109,25 +101,16 @@ const EntryDetail = () => {
           </div>
         </div>
 
-        {/* Right Column: Photos */}
         <div className="photo-stack">
           {allImages.length > 0 ? (
             allImages.map((img, index) => (
               <div key={index} className="photo-card" style={{position:'relative'}}>
-                <img 
-                  src={img} 
-                  alt="Memory" 
-                  className="photo-card-img" 
-                  onClick={() => window.open(img, '_blank')} 
-                  style={{cursor:'zoom-in'}}
-                />
-                <button className="delete-btn-gallery" onClick={(e) => handleDeletePhoto(img, e)} title="Delete this photo">✕</button>
+                <img src={img} className="photo-card-img" onClick={() => window.open(img, '_blank')} style={{cursor:'zoom-in'}} />
+                <button className="delete-btn-gallery" onClick={(e) => handleDeletePhoto(img, e)}>✕</button>
               </div>
             ))
           ) : (
-            <div className="photo-card" style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e0'}}>
-              No Photos Added
-            </div>
+            <div className="photo-card" style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e0'}}>No Photos Added</div>
           )}
           
           <label className="photo-card" style={{border:'2px dashed #cbd5e0', boxShadow:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'150px'}}>
@@ -141,7 +124,7 @@ const EntryDetail = () => {
   );
 };
 
-// --- 2. COMPONENT: DASHBOARD ---
+// --- 2. COMPONENT: DASHBOARD (Page 2 - With Image Fallback) ---
 const Dashboard = () => {
   const { user } = useUser();
   const [journals, setJournals] = useState([]);
@@ -250,14 +233,11 @@ const Dashboard = () => {
             <Link to={`/entry/${j.id}`} key={j.id} style={{textDecoration:'none'}}>
               <div className="travel-card">
                 <div style={{position:'relative'}}>
-                  
-                  {/* --- UPDATED LOGIC HERE: Show Main Image OR First Gallery Image --- */}
                   {(j.image_url || (j.gallery && j.gallery.length > 0)) ? (
                     <img src={j.image_url || j.gallery[0]} className="card-img" />
                   ) : (
                     <div style={{width:'100%', height:'200px', background:'#f7fafc', display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e0'}}>No Photo</div>
                   )}
-
                   <button className="delete-btn" onClick={(e) => handleDelete(e, j.id)}>🗑️</button>
                 </div>
                 <div className="card-content"><h4 style={{margin:0, color:'#333'}}>{j.title}</h4><p style={{color:'#666', fontSize:'0.9rem'}}>📍 {j.location}</p></div>
@@ -271,6 +251,7 @@ const Dashboard = () => {
   );
 };
 
+// --- 3. COMPONENT: FOOTER ---
 const Footer = () => (
   <footer className="footer">
     <div className="footer-links"><a href="#">Feedback</a><span>|</span><a href="#">Contact</a><span>|</span><a href="#">Support</a></div>
@@ -278,11 +259,53 @@ const Footer = () => (
   </footer>
 );
 
+// --- 4. MAIN APP ---
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<><SignedOut><div className="landing-page"><div className="navbar"><div className="logo">✈️ Travel Journal</div><SignInButton mode="modal"><button className="btn-teal">Sign In</button></SignInButton></div><div className="hero-content"><h1>Capture Your Journey</h1><div className="hero-actions"><SignInButton mode="modal"><button className="btn-teal">Start Now</button></SignInButton></div></div><Footer /></div></SignedOut><SignedIn><Dashboard /></SignedIn></>} />
+        <Route path="/" element={
+          <>
+            <SignedOut>
+              {/* --- PAGE 1: ORIGINAL LANDING PAGE (RESTORED) --- */}
+              <div className="landing-page">
+                <nav className="navbar">
+                  <div className="logo">✈️ Travel Journal</div>
+                  <SignInButton mode="modal">
+                    <button className="btn-teal">Sign In</button>
+                  </SignInButton>
+                </nav>
+
+                <div className="hero-content">
+                  <div className="hero-actions">
+                    <SignInButton mode="modal">
+                      <button className="btn-teal btn-large">Start Journaling</button>
+                    </SignInButton>
+                    <a href="#" className="learn-more">Learn more →</a>
+                  </div>
+
+                  {/* Restored Images */}
+                  <div className="hero-images">
+                    <img 
+                      src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800" 
+                      alt="Mountains" 
+                      className="hero-img img-left" 
+                    />
+                    <img 
+                      src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800" 
+                      alt="Beach" 
+                      className="hero-img img-right" 
+                    />
+                  </div>
+                </div>
+                <Footer />
+              </div>
+            </SignedOut>
+            <SignedIn>
+              <Dashboard />
+            </SignedIn>
+          </>
+        } />
         <Route path="/entry/:id" element={<SignedIn><EntryDetail /></SignedIn>} />
       </Routes>
     </BrowserRouter>
