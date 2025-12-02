@@ -25,35 +25,26 @@ const EntryDetail = () => {
     else setEntry(data);
   };
 
-  // --- NEW: DELETE INDIVIDUAL PHOTO ---
   const handleDeletePhoto = async (urlToDelete, e) => {
-    e.stopPropagation(); // Prevent clicking the image while deleting
+    e.stopPropagation();
     if (!window.confirm("Are you sure you want to delete this photo?")) return;
 
     let updateData = {};
 
-    // Check if it is the Main Cover Image
+    // If deleting the Main Image, set it to null
     if (urlToDelete === entry.image_url) {
       updateData.image_url = null;
-    } else {
-      // It must be in the Gallery Array
-      const newGallery = entry.gallery.filter(url => url !== urlToDelete);
-      updateData.gallery = newGallery;
-    }
+    } 
+    // Always remove it from the gallery list too
+    const newGallery = entry.gallery ? entry.gallery.filter(url => url !== urlToDelete) : [];
+    updateData.gallery = newGallery;
 
-    const { error } = await supabase
-      .from('journals')
-      .update(updateData)
-      .eq('id', id);
+    const { error } = await supabase.from('journals').update(updateData).eq('id', id);
 
-    if (error) {
-      alert("Error deleting photo: " + error.message);
-    } else {
-      getEntry(); // Refresh page instantly
-    }
+    if (error) alert("Error deleting photo: " + error.message);
+    else getEntry();
   };
 
-  // Add Photo Logic
   const handleAddPhotos = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -71,19 +62,30 @@ const EntryDetail = () => {
       }
     }
 
-    const currentGallery = entry.gallery || [];
-    const updatedGallery = [...currentGallery, ...newUrls];
+    // If there was no main image before, make the first new photo the main image
+    let updateData = {};
+    if (!entry.image_url && newUrls.length > 0) {
+        updateData.image_url = newUrls[0];
+    }
 
-    const { error: dbError } = await supabase.from('journals').update({ gallery: updatedGallery }).eq('id', id);
+    const currentGallery = entry.gallery || [];
+    updateData.gallery = [...currentGallery, ...newUrls];
+
+    const { error: dbError } = await supabase.from('journals').update(updateData).eq('id', id);
     if (!dbError) getEntry();
     setUploading(false);
   };
 
   if (!entry) return <div style={{padding:'50px', textAlign:'center'}}>Loading Memory...</div>;
 
+  // Combine unique images for display
   const allImages = [];
   if (entry.image_url) allImages.push(entry.image_url);
-  if (entry.gallery) allImages.push(...entry.gallery);
+  if (entry.gallery) {
+      entry.gallery.forEach(img => {
+          if (img !== entry.image_url) allImages.push(img);
+      });
+  }
 
   return (
     <div>
@@ -119,15 +121,7 @@ const EntryDetail = () => {
                   onClick={() => window.open(img, '_blank')} 
                   style={{cursor:'zoom-in'}}
                 />
-                
-                {/* --- DELETE BUTTON (X) --- */}
-                <button 
-                  className="delete-btn-gallery" 
-                  onClick={(e) => handleDeletePhoto(img, e)}
-                  title="Delete this photo"
-                >
-                  ✕
-                </button>
+                <button className="delete-btn-gallery" onClick={(e) => handleDeletePhoto(img, e)} title="Delete this photo">✕</button>
               </div>
             ))
           ) : (
@@ -136,7 +130,6 @@ const EntryDetail = () => {
             </div>
           )}
           
-          {/* Add Photo Button */}
           <label className="photo-card" style={{border:'2px dashed #cbd5e0', boxShadow:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'150px'}}>
             <input type="file" multiple accept="image/*" onChange={handleAddPhotos} style={{display:'none'}} disabled={uploading} />
             {uploading ? <span style={{color:'#00897b', fontWeight:'600'}}>Uploading...</span> : <><span style={{fontSize:'2rem', color:'#cbd5e0'}}>+</span><span style={{color:'#94a3b8', fontWeight:'600'}}>Add Photo</span></>}
@@ -257,7 +250,14 @@ const Dashboard = () => {
             <Link to={`/entry/${j.id}`} key={j.id} style={{textDecoration:'none'}}>
               <div className="travel-card">
                 <div style={{position:'relative'}}>
-                  {j.image_url ? <img src={j.image_url} className="card-img" /> : <div style={{width:'100%', height:'200px', background:'#f7fafc'}}></div>}
+                  
+                  {/* --- UPDATED LOGIC HERE: Show Main Image OR First Gallery Image --- */}
+                  {(j.image_url || (j.gallery && j.gallery.length > 0)) ? (
+                    <img src={j.image_url || j.gallery[0]} className="card-img" />
+                  ) : (
+                    <div style={{width:'100%', height:'200px', background:'#f7fafc', display:'flex', alignItems:'center', justifyContent:'center', color:'#cbd5e0'}}>No Photo</div>
+                  )}
+
                   <button className="delete-btn" onClick={(e) => handleDelete(e, j.id)}>🗑️</button>
                 </div>
                 <div className="card-content"><h4 style={{margin:0, color:'#333'}}>{j.title}</h4><p style={{color:'#666', fontSize:'0.9rem'}}>📍 {j.location}</p></div>
