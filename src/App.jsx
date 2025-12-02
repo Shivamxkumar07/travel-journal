@@ -1,33 +1,75 @@
 import { useState, useEffect } from 'react'
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/clerk-react"
 import { supabase } from './supabaseClient'
+import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom'
 
-// --- FOOTER COMPONENT (New) ---
-const Footer = () => {
+// --- 1. NEW COMPONENT: THE DETAIL PAGE ---
+const EntryDetail = () => {
+  const { id } = useParams(); // Get the ID from the URL
+  const [entry, setEntry] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    getEntry();
+  }, [id]);
+
+  const getEntry = async () => {
+    const { data, error } = await supabase
+      .from('journals')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) console.error(error);
+    else setEntry(data);
+  };
+
+  if (!entry) return <div style={{textAlign:'center', marginTop:'50px'}}>Loading...</div>;
+
   return (
-    <footer className="footer">
-      <div className="footer-content">
-        <div className="footer-links">
-          <a href="#" className="footer-link" onClick={(e) => {e.preventDefault(); alert("Thanks for your feedback!")}}>Feedback</a>
-          <span style={{color:'#cbd5e0'}}>|</span>
-          <a href="mailto:support@traveljournal.com" className="footer-link">Contact</a>
-          <span style={{color:'#cbd5e0'}}>|</span>
-          <a href="#" className="footer-link" onClick={(e) => {e.preventDefault(); alert("Help Center coming soon!")}}>Support</a>
+    <div className="dashboard-container">
+      {/* Navigation Bar */}
+      <header className="navbar">
+        <div className="logo" onClick={() => navigate('/')}>✈️ My Journal</div>
+        <UserButton />
+      </header>
+
+      <div className="dashboard-content-wrapper" style={{maxWidth:'800px'}}>
+        <button onClick={() => navigate('/')} className="btn-teal" style={{marginBottom:'20px'}}>← Back to Dashboard</button>
+        
+        <div className="entry-form-card" style={{padding:'0', overflow:'hidden'}}>
+          {/* Full Width Image */}
+          {entry.image_url && (
+            <div style={{width:'100%', height:'400px'}}>
+              <img src={entry.image_url} style={{width:'100%', height:'100%', objectFit:'cover'}} />
+            </div>
+          )}
+          
+          {/* Content */}
+          <div style={{padding:'40px'}}>
+            <span className="card-loc" style={{fontSize:'1rem', marginBottom:'10px'}}>📍 {entry.location}</span>
+            <h1 style={{fontSize:'2.5rem', margin:'0 0 20px 0', color:'#1a202c'}}>{entry.title}</h1>
+            <p style={{fontSize:'1.1rem', lineHeight:'1.8', color:'#4a5568', whiteSpace:'pre-wrap'}}>
+              {entry.description}
+            </p>
+            <p style={{marginTop:'30px', color:'#a0aec0', fontSize:'0.9rem'}}>
+              Travelled on: {new Date(entry.created_at).toLocaleDateString()}
+            </p>
+          </div>
         </div>
-        <p className="copyright">© 2024 Travel Journal. Made with 💜.</p>
       </div>
-    </footer>
+      <Footer />
+    </div>
   );
 };
 
-function App() {
+// --- 2. COMPONENT: THE DASHBOARD (Your existing main page) ---
+const Dashboard = () => {
   const { user } = useUser();
   const [journals, setJournals] = useState([]);
   const [newEntry, setNewEntry] = useState({ title: '', location: '', description: '' });
   const [imageFile, setImageFile] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // Location Suggestions State
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -45,33 +87,26 @@ function App() {
     else setJournals(data);
   };
 
-  // Location Autocomplete
   const handleLocationChange = async (e) => {
     const value = e.target.value;
     setNewEntry({ ...newEntry, location: value });
-
     if (value.length > 2) {
       try {
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${value}&limit=5`);
         const data = await response.json();
         setSuggestions(data);
         setShowSuggestions(true);
-      } catch (error) {
-        console.error("Error fetching locations:", error);
-      }
+      } catch (error) { console.error(error); }
     } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
+      setSuggestions([]); setShowSuggestions(false);
     }
   };
 
   const selectLocation = (placeName) => {
     setNewEntry({ ...newEntry, location: placeName });
-    setSuggestions([]);
-    setShowSuggestions(false);
+    setSuggestions([]); setShowSuggestions(false);
   };
 
-  // Upload Logic
   const handleUpload = async () => {
     if (!imageFile) return null;
     const fileExt = imageFile.name.split('.').pop();
@@ -91,12 +126,11 @@ function App() {
     await supabase.from('journals').insert([{
       user_id: user.id, title: newEntry.title, location: newEntry.location, description: newEntry.description, image_url: imageUrl
     }]);
-    setNewEntry({ title: '', location: '', description: '' });
-    setImageFile(null);
-    fetchJournals();
+    setNewEntry({ title: '', location: '', description: '' }); setImageFile(null); fetchJournals();
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (e, id) => {
+    e.stopPropagation(); // Stop click from opening the detail page
     if(window.confirm("Delete this memory?")) {
       await supabase.from('journals').delete().eq('id', id);
       fetchJournals();
@@ -109,95 +143,132 @@ function App() {
   );
 
   return (
-    <>
-      <SignedOut>
-        <div className="landing-page">
-          <nav className="navbar">
-            <div className="logo">✈️ Travel Journal</div>
-            <SignInButton mode="modal"><button className="btn-teal">Sign In</button></SignInButton>
-          </nav>
-          <div className="hero-content">
-            <div className="hero-actions">
-              <SignInButton mode="modal"><button className="btn-teal btn-large">Start Journaling</button></SignInButton>
-            </div>
-            <div className="hero-images">
-              <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800" className="hero-img img-left" />
-              <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800" className="hero-img img-right" />
-            </div>
+    <div className="dashboard-container">
+      <header className="navbar">
+        <div className="logo">✈️ My Journal</div>
+        <UserButton />
+      </header>
+
+      <div className="dashboard-content-wrapper">
+        {/* Banner */}
+        <div style={{ width: '100%', height: '250px', borderRadius: '20px', marginBottom: '40px', overflow: 'hidden', position: 'relative', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}>
+          <img src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(255, 255, 255, 0.85)', padding: '10px 25px', borderRadius: '50px', backdropFilter: 'blur(5px)' }}>
+            <h2 style={{ margin: 0, fontSize: '1.5rem', color: '#00897b' }}>Where to next? 🌏</h2>
           </div>
-          {/* Footer added here */}
-          <Footer />
         </div>
-      </SignedOut>
 
-      <SignedIn>
-        <div className="dashboard-container">
-          <header className="navbar">
-            <div className="logo">✈️ My Journal</div>
-            <UserButton />
-          </header>
-
-          <div className="dashboard-content-wrapper">
-            <div style={{
-              width: '100%', height: '250px', borderRadius: '20px', marginBottom: '40px', overflow: 'hidden', position: 'relative', boxShadow: '0 10px 20px rgba(0,0,0,0.1)'
-            }}>
-              <img src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(255, 255, 255, 0.85)', padding: '10px 25px', borderRadius: '50px', backdropFilter: 'blur(5px)' }}>
-                <h2 style={{ margin: 0, fontSize: '1.5rem', color: '#00897b' }}>Where to next? 🌏</h2>
+        {/* Form */}
+        <div className="entry-form-card">
+          <h3>Add a New Adventure</h3>
+          <form onSubmit={handleSubmit}>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'15px'}}>
+              <input type="text" placeholder="Trip Title" value={newEntry.title} onChange={(e) => setNewEntry({...newEntry, title: e.target.value})} />
+              <div className="location-wrapper">
+                <input type="text" placeholder="Location..." value={newEntry.location} onChange={handleLocationChange} autoComplete="off"/>
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="suggestions-list">
+                    {suggestions.map((place) => (
+                      <li key={place.place_id} onClick={() => selectLocation(place.display_name)} className="suggestion-item">📍 {place.display_name}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
-
-            <div className="entry-form-card">
-              <h3>Add a New Adventure</h3>
-              <form onSubmit={handleSubmit}>
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'15px'}}>
-                  <input type="text" placeholder="Trip Title" value={newEntry.title} onChange={(e) => setNewEntry({...newEntry, title: e.target.value})} />
-                  <div className="location-wrapper">
-                    <input type="text" placeholder="Location (Type to search...)" value={newEntry.location} onChange={handleLocationChange} autoComplete="off"/>
-                    {showSuggestions && suggestions.length > 0 && (
-                      <ul className="suggestions-list">
-                        {suggestions.map((place) => (
-                          <li key={place.place_id} onClick={() => selectLocation(place.display_name)} className="suggestion-item">
-                            📍 {place.display_name}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-                <textarea rows="3" placeholder="Description..." value={newEntry.description} onChange={(e) => setNewEntry({...newEntry, description: e.target.value})} />
-                <div style={{display:'flex', alignItems:'center', gap:'10px', marginTop:'10px'}}>
-                  <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} style={{border:'none', padding:0}} />
-                  <button className="btn-teal btn-large" style={{marginLeft:'auto'}}>Save Entry</button>
-                </div>
-              </form>
+            <textarea rows="3" placeholder="Description..." value={newEntry.description} onChange={(e) => setNewEntry({...newEntry, description: e.target.value})} />
+            <div style={{display:'flex', alignItems:'center', gap:'10px', marginTop:'10px'}}>
+              <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} style={{border:'none', padding:0}} />
+              <button className="btn-teal btn-large" style={{marginLeft:'auto'}}>Save Entry</button>
             </div>
-
-            <div style={{ marginBottom: '30px' }}>
-              <input type="text" placeholder="🔍 Search your trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '15px', borderRadius: '50px', border: '1px solid #ddd', boxShadow: '0 4px 10px rgba(0,0,0,0.05)', fontSize: '1.1rem' }} />
-            </div>
-
-            <div className="journal-grid">
-              {filteredJournals.map((j) => (
-                <div key={j.id} className="travel-card">
-                  <button onClick={() => handleDelete(j.id)} className="delete-btn">🗑️</button>
-                  <div className="card-image-box">
-                    {j.image_url ? <img src={j.image_url} className="card-img" /> : <div style={{width:'100%', height:'100%', background:'#f7fafc'}}></div>}
-                  </div>
-                  <div className="card-content">
-                    <span className="card-loc">📍 {j.location}</span>
-                    <h4 className="card-title">{j.title}</h4>
-                    <p className="card-desc">{j.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Footer added here */}
-          <Footer />
+          </form>
         </div>
-      </SignedIn>
-    </>
+
+        {/* Search */}
+        <div style={{ marginBottom: '30px' }}>
+          <input type="text" placeholder="🔍 Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '15px', borderRadius: '50px', border: '1px solid #ddd', fontSize: '1.1rem' }} />
+        </div>
+
+        {/* Grid */}
+        <div className="journal-grid">
+          {filteredJournals.map((j) => (
+            // WRAP CARD IN LINK TO DETAIL PAGE
+            <Link to={`/entry/${j.id}`} key={j.id} style={{textDecoration:'none'}}>
+              <div className="travel-card">
+                <button onClick={(e) => handleDelete(e, j.id)} className="delete-btn">🗑️</button>
+                <div className="card-image-box">
+                  {j.image_url ? <img src={j.image_url} className="card-img" /> : <div style={{width:'100%', height:'100%', background:'#f7fafc'}}></div>}
+                </div>
+                <div className="card-content">
+                  <span className="card-loc">📍 {j.location}</span>
+                  <h4 className="card-title">{j.title}</h4>
+                  <p className="card-desc">{j.description}</p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+};
+
+// --- 3. COMPONENT: FOOTER ---
+const Footer = () => (
+  <footer className="footer">
+    <div className="footer-content">
+      <div className="footer-links">
+        <a href="#" className="footer-link">Feedback</a>
+        <span style={{color:'#cbd5e0'}}>|</span>
+        <a href="mailto:support@traveljournal.com" className="footer-link">Contact</a>
+        <span style={{color:'#cbd5e0'}}>|</span>
+        <a href="#" className="footer-link">Support</a>
+      </div>
+      <p className="copyright">© 2024 Travel Journal.</p>
+    </div>
+  </footer>
+);
+
+// --- 4. MAIN APP (ROUTER) ---
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Route 1: The Landing Page (Signed Out) or Dashboard (Signed In) */}
+        <Route path="/" element={
+          <>
+            <SignedOut>
+              <div className="landing-page">
+                <nav className="navbar">
+                  <div className="logo">✈️ Travel Journal</div>
+                  <SignInButton mode="modal"><button className="btn-teal">Sign In</button></SignInButton>
+                </nav>
+                <div className="hero-content">
+                  <div className="hero-actions">
+                    <SignInButton mode="modal"><button className="btn-teal btn-large">Start Journaling</button></SignInButton>
+                  </div>
+                  <div className="hero-images">
+                    <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800" className="hero-img img-left" />
+                    <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800" className="hero-img img-right" />
+                  </div>
+                </div>
+                <Footer />
+              </div>
+            </SignedOut>
+            <SignedIn>
+              <Dashboard />
+            </SignedIn>
+          </>
+        } />
+        
+        {/* Route 2: The New Detail Page */}
+        <Route path="/entry/:id" element={
+          <SignedIn>
+            <EntryDetail />
+          </SignedIn>
+        } />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
