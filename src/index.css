@@ -57,12 +57,31 @@ html, body, #root {
   box-shadow: 0 30px 60px rgba(0,0,0,0.3);
 }
 
-/* --- 3. DASHBOARD --- */
+/* --- 3. DASHBOARD (Clearer Background) --- */
 .dashboard-container {
-  min-height: 100vh; display: flex; flex-direction: column;
-  background-color: #e0f2f1;
-  background-image: url("https://www.transparenttextures.com/patterns/world-map.png");
-  background-attachment: fixed; background-size: 400px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  
+  /* BACKGROUND: High-Res Map with Minimal Fade */
+  /* The '0.2' means only 20% white overlay, so the image is 80% visible and sharp */
+  background: 
+    linear-gradient(rgba(255, 255, 255, 0.), rgba(255, 255, 255, 0.2)),
+    url('https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?q=80&w=2064');
+  
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed; /* Keeps it still while scrolling */
+}
+
+/* Optional: Make the content text slightly darker/bolder to read against the clear image */
+.dashboard-content-wrapper {
+  padding: 40px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
 }
 .dashboard-content-wrapper {
   padding: 40px 20px; max-width: 1200px; margin: 0 auto; flex: 1; width: 100%; box-sizing: border-box;
@@ -165,4 +184,101 @@ input[type="file"] { background: white; padding: 10px; border: 1px dashed #cbd5e
   .photo-card-img { height: 250px; }
   .navbar { padding: 15px; }
   .hero-img { width: 100%; transform: none !important; height: 200px; }
+}
+/* --- NEW HERO CENTER CARD (Smaller & Clearer) --- */
+.hero-images {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 40px;
+}
+
+.hero-center-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* Center the card precisely */
+  transform: translate(-50%, -50%); 
+  z-index: 20;
+  
+  /* --- 1. SIZE: Smaller --- */
+  width: 300px; /* Reduced from 400px */
+  padding: 30px; /* Reduced padding */
+  
+  /* --- 2. BACKGROUND: Clearer Glass Effect --- */
+  /* Very transparent white/grey for a "Clear" look */
+  background: rgba(255, 255, 255, 0.1); 
+  backdrop-filter: blur(0px); /* Stronger blur for glass feel */
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3); /* Crisper border */
+  border-radius: 20px;
+  
+  text-align: center;
+  color: rgb(13, 4, 4);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  
+  /* --- 3. HOVER EFFECT --- */
+  transition: all 0.4s ease;
+}
+
+/* On Hover: Scale up slightly and glow */
+.hero-center-card:hover {
+  transform: translate(-50%, -55%) scale(1.05); /* Moves up slightly and grows */
+  background: rgba(255, 255, 255, 0.15); /* Gets slightly brighter */
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.hero-card-title {
+  font-family: 'Times New Roman', serif;
+  font-size: 2.2rem; /* Slightly smaller text to fit */
+  font-weight: 700;
+  margin: 0 0 10px 0;
+  line-height: 1.1;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+}
+
+.hero-card-subtitle {
+  font-size: 0.9rem;
+  font-weight: 400;
+  margin-bottom: 25px;
+  color: #06034c;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+/* Orange Button */
+.btn-orange {
+  background-color: #e76f51;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 50px;
+  border: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(231, 111, 81, 0.4);
+}
+
+.btn-orange:hover {
+  background-color: #d65a3b;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(231, 111, 81, 0.6);
+}
+
+/* Images positioning (Keep this) */
+.img-left { margin-right: 200px; } /* Slightly reduced gap since card is smaller */
+.img-right { margin-left: 200px; }
+
+/* Mobile */
+@media (max-width: 850px) {
+  .hero-center-card {
+    position: relative; transform: none; top: auto; left: auto;
+    width: 80%; margin: 20px 0;
+  }
+  .hero-center-card:hover { transform: scale(1.02); } /* Simple scale on mobile */
+  .img-left, .img-right { display: none; }
 }
