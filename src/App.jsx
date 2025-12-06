@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/clerk-react"
 import { supabase } from './supabaseClient'
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom'
+// --- IMPORT ICONS ---
+import { FaFacebookF, FaInstagram, FaLinkedinIn, FaWhatsapp } from 'react-icons/fa';
 
 // --- 1. COMPONENT: EXPLORE (Public Search) ---
 const Explore = () => {
@@ -250,9 +252,44 @@ const Dashboard = () => {
   );
 };
 
-const Footer = () => <footer className="footer"><div className="footer-links"><a href="#">Feedback</a><span>|</span><a href="#">Contact</a><span>|</span><a href="#">Support</a></div><p style={{marginTop:'10px', fontSize:'0.8rem'}}>© 2024 Travel Journal</p></footer>;
+// --- 4. COMPONENT: FOOTER (Now with Icons) ---
+const Footer = () => (
+  <footer className="footer">
+    <div className="footer-content">
+      <div className="footer-section">
+        <h4>GET IN TOUCH</h4>
+        <p>📞 Phone: +91-7859074570</p>
+        <p>📧 Email: <a href="mailto:kumarshivam997318@gmail.com">kumarshivam997318@gmail.com</a></p>
+        <div className="footer-links">
+          <a href="#" onClick={(e) => {e.preventDefault(); alert("Feedback coming soon!")}}>Feedback</a>
+          <span>|</span>
+          <a href="#" onClick={(e) => {e.preventDefault(); alert("Support coming soon!")}}>Support</a>
+        </div>
+      </div>
+      <div className="footer-section">
+        {/* <h4>DOWNLOAD OUR FREE MOBILE APPS</h4>
+        <div className="app-buttons">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play" className="store-btn" />
+          <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store" className="store-btn" />
+        </div> */}
+      </div>
+      <div className="footer-section">
+        <h4>SOCIAL MEDIA</h4>
+        <div className="social-icons">
+          <a href="https://www.facebook.com/profile.php?id=100072303580898" target="_blank" rel="noreferrer" className="social-icon" title="Facebook"><FaFacebookF /></a>
+          <a href="https://www.instagram.com/_shivam_zzzzzzz/" target="_blank" rel="noreferrer" className="social-icon" title="Instagram"><FaInstagram /></a>
+          <a href="https://www.linkedin.com/in/shivam-kumar-36b941361/" target="_blank" rel="noreferrer" className="social-icon" title="LinkedIn"><FaLinkedinIn /></a>
+          <a href="https://wa.me/qr/QIBQEVHB6FAHN1" target="_blank" rel="noreferrer" className="social-icon" title="WhatsApp"><FaWhatsapp /></a>
+        </div>
+      </div>
+    </div>
+    <div className="copyright-bar">
+      <p>© 2024 Travel Journal. Created by Shivam Kumar.</p>
+    </div>
+  </footer>
+);
 
-// --- 4. MAIN APP ---
+// --- 5. MAIN APP ---
 function App() {
   return (
     <BrowserRouter>
@@ -260,7 +297,6 @@ function App() {
         <Route path="/" element={
           <>
             <SignedOut>
-              {/* --- 1. CLEAN LANDING PAGE (Text removed) --- */}
               <div className="landing-page">
                 <nav className="navbar">
                   <div className="logo">✈️ Travel Journal</div>
@@ -269,9 +305,7 @@ function App() {
                   </SignInButton>
                 </nav>
 
-                <div className="hero-content">
-                  {/* Text Removed Here - Only Images Remain */}
-                  {/* ... inside the SignedOut section ... */}
+               {/* ... inside the SignedOut section ... */}
             <div className="hero-content">
               
               {/* Note: I removed the old "hero-actions" button since we moved it inside the card */}
@@ -302,7 +336,6 @@ function App() {
                 />
               </div>
             </div>
-                </div>
                 <Footer />
               </div>
             </SignedOut>
@@ -311,7 +344,7 @@ function App() {
             </SignedIn>
           </>
         } />
-        <Route path="/entry/:id" element={<SignedIn><EntryDetail /></SignedIn>} />
+        <Route path="/entry/:id" element={<EntryDetail />} />
         <Route path="/explore" element={<Explore />} />
       </Routes>
     </BrowserRouter>
